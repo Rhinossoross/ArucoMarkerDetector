@@ -32,11 +32,11 @@ All CAD files can be found in the Shared fusion hub
 
 ### angle tracking
     'Aruco>aruco detector.py' can be used in 2 ways:
-     - directly running it; which will by default run in continuous mode showing videos and debug text,
-     - and calling the main function using: 
-        ```python 
-        from arucoDetector import GetMarkerAngle 
-         ```
+    - directly running it; which will by default run in continuous mode showing videos and debug text,
+    - and calling the main function using: 
+```python 
+from arucoDetector import GetMarkerAngle 
+```
     
     running the program from import allows headless running and 'instance' marker angle aquisition; meaning you call the function once and it gives you one set of angles as the output for that instance.
     you can set the expected number of markers to find, the max number of iterations where it will try to get these angles, and the amount of iterations it will need to get all angles for averaging results
