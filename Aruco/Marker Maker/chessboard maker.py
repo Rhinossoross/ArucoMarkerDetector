@@ -3,8 +3,8 @@ import numpy as np
 
 output_path = "marker maker/chessboard_9x6.png"
 square_size_px: int = 80          # Size of each square in pixels
-num_squares_width: int = 10       # Total squares horizontally (inner corners = 9)
-num_squares_height: int = 7       # Total squares vertically (inner corners = 6)
+num_squares_width: int = 10       # Total squares horizontally (inner corners = num_squares_width  - 1 = 9)
+num_squares_height: int = 7       # Total squares vertically   (inner corners = num_squares_height - 1 = 6)
 margin_px: int = 4                # White margin around the board (helps printing) --2px of this will be black border
 """
 Generates a chessboard calibration pattern and saves it as PNG.

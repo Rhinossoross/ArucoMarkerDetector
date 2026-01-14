@@ -1,11 +1,12 @@
 import cv2
 from cv2 import aruco
 
-# save markers as images
-
+### input variables ###
 arucoDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
 dictionarySize = 6 # 6x6
 amountOfmarkers = 5 # number of markers to generate
+
+### generate and save markers ###
 markerSize = dictionarySize+2  # size of the marker image in pixels 
 for i in range(amountOfmarkers):
     markerImage = aruco.generateImageMarker(arucoDict, i, markerSize)
