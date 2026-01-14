@@ -45,6 +45,18 @@ you can set the expected number of markers to find, the max number of iterations
 This function is fully blocking, and based on the maxIterations & averagingIterations can take 1-2 seconds to compute
 so if using it for motor position control use it with maxIterations=10 averagingIterations = 2 or other low numbers to minimise processing time and just call the function a lot.
 
+all of the editable variables for the arucoDetector:
+```python
+cameraID:int = 0                        # id of camera
+expectedNumber:int = 4                  # expected number of markers to find
+maxIterations:int=100                   # maximum number of frames it will attempt to find markers (only used if program not running in continuous mode)
+continuous:bool=True                    # run the detection indefinitely
+showVideo:bool=True                     # show the video frame
+debugInfo:bool=True                     # output text
+averagingItertions:int=15               # the amount of frames it will try to average the angle over (values over 3 enable std based outlier removal)
+calibrationFilePath = 'calibration.npz' # location of camera calibrator
+```
+
 ### toDo: ###
 build a seperate block for initialising the cap as an external function to streamline the startup process, and test with motor control
 
