@@ -4,8 +4,8 @@ This repo contains all the information and software you could possibly need to s
 All CAD files can be found in the Shared fusion hub for the most up to date models; but built files are stored in stl and obj form on here
 
 ## Aruco marker Detectors 
-In order to detect relative positions of the finger joints you can easily use aruco markers
-currently this is configured to only produce relative joint angles. However, it can be changed to give 3d position and angle vectors
+In order to detect relative positions of the finger joints you can easily use aruco markers.
+Currently this is configured to only produce relative joint angles. However, it can be changed to give 3d position and angle vectors.
 This may be important for working out end effector position from the joint angles, however it is recomended to **implement using forwards kinematics** on your known angles based on your own geometry.
     -  this is only because it will be difficult to stick the markers on the exact tip point of the end effector and the exact base point of the first joint. 
 ### Marker set up
@@ -14,15 +14,16 @@ in 'Aruco>Marker Maker>' you will find two python files 'marker maker.py' and 'c
 - if editing the above or dictionary of the aruco markers, the 'aruco detector.py' file must be updated to match these changes
 
 The only file of interest is 'marker printer.html' editing this file will let you easily alter dimensions of the printed markers and chessboard
-Running this file in your browser allows you to instantly print it
+Running this file in your browser allows you to instantly print it to scale.
 
-Once printed, these markers can cut out to stick to the finger. Try to stick them to a completely flat surface.
-![alt text](Images\aruco markers.png "example aruco markers")
-and glue the chessboard to a flat plate for camera calibration
+![alt text](Images\aruco markers.png "example aruco markers") 
+
+Glue the chessboard to a flat plate for camera calibration
 
 ### camera set up
 To calibrate your camera, in a well lit environment, run Aruco > camera calibrator.py 
-possitioning the chessboard completely inframe and uncovered should cause the program to draw markers on the board 
+possitioning the chessboard completely inframe and uncovered should cause the program to draw markers on the board.
+
 ![alt text](Images/camera calibration 1.png "example camera calibration shot")
 
 Then, using the s key take 20-30 shots of the checker board at different locations & rotations around the frame
