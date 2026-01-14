@@ -4,20 +4,20 @@
 
 #if running this program instead of importing, then these are the programs input variables:
 #
-cameraID = 0                            # id of camera
-expectedNumber:int = 4                  # expected number of markers to find
-maxIterations:int=100                   # maximum number of frames it will attempt to find markers (only used if program not running in continuous mode)
-continuous:bool=True                    # run the detection indefinitely
-showVideo:bool=True                     # show the video frame
-debugInfo:bool=True                     # output text
-averagingItertions:int=15               # the amount of frames it will try to average the angle over (values over 3 enable std based outlier removal)
-calibrationFilePath = 'calibration.npz' # location of camera calibrator
+cameraID:int = 0                            # id of camera
+markerSize:float = 0.01985                  # size of the markers in meters (0.025 = 25mm)
+expectedNumber:int = 4                      # expected number of markers to find
+maxIterations:int=100                       # maximum number of frames it will attempt to find markers (only used if program not running in continuous mode)
+continuous:bool=True                        # run the detection indefinitely
+showVideo:bool=True                         # show the video frame
+debugInfo:bool=True                         # output text
+averagingItertions:int=15                   # the amount of frames it will try to average the angle over (values over 3 enable std based outlier removal)
+calibrationFilePath:str = 'calibration.npz' # location of camera calibrator
 
 # required imports
 import cv2
 import numpy as np
 from os import system as clear_terminal  # Renamed for clarity
-
 class _DetectedAruco: #the single underscore makes this a private class
     def __init__(self):
         self.corner = np.zeros((4, 2))
@@ -46,40 +46,35 @@ def GetVectorAngle(vector1, vector2):
     angle = np.arccos(np.clip(dot_product / norm_product, -1.0, 1.0))
     return angle
 
-def GetMarkerAngle(
-        cameraID = 0,                            
-        expectedNumber:int = 4,                  
-        maxIterations:int=100,                   
-        averagingItertions:int=15,               
-        calibrationFilePath = 'calibration.npz',
-        continuous:bool=True,                    
-        showVideo:bool=True,                     
-        debugInfo:bool=True,                     
-        ) ->tuple[bool, list[float]]: 
-    """
+class _CameraData:
+    def __init__(self,cap,markerSize:float, detector: cv2.aruco.ArucoDetector,camera_matrix, dist_coeffs,object_points ):
+        self.cap           = cap 
+        self.markerSize    = markerSize
+        self.detector      = detector
+        self.camera_matrix = camera_matrix
+        self.dist_coeffs   = dist_coeffs 
+        self.object_points = object_points
+
+
+def GetCameraData(
+        cameraID:int = 0,
+        markerSize:float = 0.02,
+        calibrationFilePath:str = 'calibration.npz',
+                ):
+    """set up the camera for capture
     Parameters
     ----------
-    cameraID : ID of camera
-    expectedNumber : expected number of markers to find
-    maxIterations : maximum number of frames it will attempt to find markers (only used if program not running in continuous mode)
-    averagingItertions : the amount of frames it will try to average the angle over (values over 3 enable std based outlier removal)
-    calibrationFilePath : location of camera calibrator
-    continuous : run the detection indefinitely
-    showVideo : show the video frame
-    debugInfo : print debug text
-
+    CameraID : The numerical id of the camera
+    markerSize : The size of the marker in meters (0.02 = 20mm)
+    CalibraionPath : location of the calibration file.
+    
     Returns
     -------
-    success : true/false dependent on if it picked up all expected markers (only used if program not running in continous mode)
-    relativeAngles : list of the angles between markers, i.e x deg between 0&1, y deg between 1&2, etc.
+    success : true or false
+    cameraData : object of all neccecary perminant data for aruco detection
     """
-
-
-
-    if averagingItertions <1: 
-        if debugInfo: print("Error: averagingIterations must be at least 1.\n set to 1")
-        averagingItertions = 1
     # Create the ArUco dictionary and detector
+
     aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
     detector_params = cv2.aruco.DetectorParameters()
     refine_params = cv2.aruco.RefineParameters()
@@ -89,7 +84,7 @@ def GetMarkerAngle(
     cap = cv2.VideoCapture(cameraID)
     if not cap.isOpened():
         if debugInfo: print("Error: Could not open video.")
-        return False ,[]
+        return False ,None
 
     # Get frame dimensions
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -121,6 +116,48 @@ def GetMarkerAngle(
         [half_size, -half_size, 0],   # Bottom-right
         [-half_size, -half_size, 0]   # Bottom-left
     ], dtype=np.float32)
+    return True, _CameraData(cap,markerSize,detector,camera_matrix,dist_coeffs,object_points)
+
+def CleanupCamera(cameraData:_CameraData|None):
+    """clean up camera when finished"""
+    if cameraData != None:
+        cameraData.cap.release()
+    cv2.destroyAllWindows()
+
+def GetMarkerAngle(
+        CameraData:_CameraData|None,
+        expectedNumber:int = 4,                  
+        maxIterations:int=100,                   
+        averagingItertions:int=15,               
+        
+        continuous:bool=False,                    
+        showVideo:bool=False,                     
+        debugInfo:bool=False,                     
+        ) ->tuple[bool, list[float]]: 
+    """
+    Parameters
+    ----------
+    expectedNumber : expected number of markers to find
+    maxIterations : maximum number of frames it is allwed to search for markers in (only used if program not running in continuous mode)
+    averagingItertions : the amount of frames it will try to average the angle over (values over 3 enable std based outlier removal)
+    calibrationFilePath : location of camera calibrator
+    continuous : run the detection indefinitely
+    showVideo : show the video frame
+    debugInfo : print debug text
+
+    Returns
+    -------
+    success : true/false dependent on if it picked up all expected markers (only used if program not running in continous mode)
+    relativeAngles : list of the angles between markers, i.e x deg between 0&1, y deg between 1&2, etc.
+    """
+
+    if CameraData is None:
+        return False, []
+    if averagingItertions <1: 
+        if debugInfo: print("Error: averagingIterations must be at least 1.\n set to 1")
+        averagingItertions = 1
+
+    
 
     ## mainloop set up
     angles = []
@@ -136,7 +173,7 @@ def GetMarkerAngle(
         if maxIterations <= 0 and not continuous:
             continueDetection = False
             return False,[]
-        ret, frame = cap.read()
+        ret, frame = CameraData.cap.read()
         if not ret:
             if debugInfo: print("Error: Could not read frame.")
             break
@@ -145,13 +182,13 @@ def GetMarkerAngle(
 
         # Detect ArUco markers
         aruco_list = []
-        corners, ids, rejected = detector.detectMarkers(frame) # get detection from aruco library
+        corners, ids, rejected = CameraData.detector.detectMarkers(frame) # get detection from aruco library
         if ids is not None:
             for i in range(len(ids)):
                 image_points = corners[i][0]  # 2D image points for this marker
 
                 # Estimate pose using solvePnP
-                success, rvec, tvec = cv2.solvePnP(object_points, image_points, camera_matrix, dist_coeffs)
+                success, rvec, tvec = cv2.solvePnP(CameraData.object_points, image_points, CameraData.camera_matrix, CameraData.dist_coeffs)
                 if success:
                     detected_aruco = _DetectedAruco()
                     detected_aruco.id = ids[i][0]
@@ -165,7 +202,7 @@ def GetMarkerAngle(
                     #print(f"  Rotation vector: {rvec.flatten()}")
 
                     # Optional: Draw axes on the frame for visualization
-                    if showVideo: cv2.drawFrameAxes(frame, camera_matrix, dist_coeffs, rvec, tvec, marker_size / 2)
+                    if showVideo: cv2.drawFrameAxes(frame, CameraData.camera_matrix, CameraData.dist_coeffs, rvec, tvec, CameraData.markerSize / 2)
 
             # Draw detected markers on the frame
             if showVideo: cv2.aruco.drawDetectedMarkers(frame, corners, ids)
@@ -200,8 +237,6 @@ def GetMarkerAngle(
         if len (angles) >= expectedNumber -1 and not continuous: ## if were not running continuously and we have found the expected number of markers
             if markerFoundIterations >= averagingItertions:                   # if we have got all the averaging iterations we need
                 continueDetection = False              # stop detection    
-                cap.release()
-                cv2.destroyAllWindows()
                 averagedAngles = []
                 for i in range(expectedNumber - 1):
                     angle_list = [group[i] for group in angelGroups]
@@ -221,10 +256,10 @@ def GetMarkerAngle(
             markerFoundIterations +=1
             maxIterations +=1  # give another iteration to find more markers
             angelGroups.append(outputAngles)
-        # Exit on 'q' key press
-        
-    cap.release()
-    cv2.destroyAllWindows()
+        # Exit on 'q' key press    
     return False,[]
 if __name__ == "__main__":
-    GetMarkerAngle(cameraID, expectedNumber, maxIterations, averagingItertions, calibrationFilePath, continuous, showVideo, debugInfo)
+    success,data = GetCameraData(cameraID,markerSize,calibrationFilePath)
+    if success:
+        GetMarkerAngle(data, expectedNumber, maxIterations, averagingItertions, continuous, showVideo, debugInfo)
+        CleanupCamera(data)

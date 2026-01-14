@@ -36,7 +36,7 @@ and press q to quit the program
 - directly running it; which will by default run in continuous mode showing videos and debug text,
 - and calling the main function using:   
 ```python 
-from arucoDetector import GetMarkerAngle 
+from arucoDetector import GetCameraData, GetMarkerAngle, CleanupCamera
 ```
 
 running the program from import allows headless running and 'instance' marker angle aquisition; meaning you call the function once and it gives you one set of angles as the output for that instance.
@@ -56,7 +56,21 @@ debugInfo:bool=True                     # output text
 averagingItertions:int=15               # the amount of frames it will try to average the angle over (values over 3 enable std based outlier removal)
 calibrationFilePath = 'calibration.npz' # location of camera calibrator
 ```
-
-### toDo: ###
-build a seperate block for initialising the cap as an external function to streamline the startup process, and test with motor control
+An example use of the detector:
+```python
+from ArucoDetector import GetMarkerAngle, GetCameraData, CleanupCamera
+# set up camera
+GotData,CameraData = GetCameraData(cameraID =0)
+if GotData:
+    for x in range (10): # program mainloop
+        GotAngles,angles = GetMarkerAngle(CameraData, maxIterations=10, averagingItertions=5)
+        if GotAngles:
+            #process angles
+            for i in range(len(angles)):
+                print(f"Angle between marker {i} & {i+1}: {angles[i]} degrees")
+        else:
+            print("No markers detected.")
+        print("#################################")
+CleanupCamera(CameraData)
+```
 
