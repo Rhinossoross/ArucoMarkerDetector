@@ -16,7 +16,7 @@ in 'Aruco>Marker Maker>' you will find two python files 'marker maker.py' and 'c
 The only file of interest is 'marker printer.html' editing this file will let you easily alter dimensions of the printed markers and chessboard
 Running this file in your browser allows you to instantly print it to scale.
 
-![alt text](Images\aruco markers.png "example aruco markers") 
+![example aruco markers](Images\aruco markers.png) 
 
 Glue the chessboard to a flat plate for camera calibration
 
@@ -24,9 +24,9 @@ Glue the chessboard to a flat plate for camera calibration
 To calibrate your camera, in a well lit environment, run Aruco > camera calibrator.py 
 possitioning the chessboard completely inframe and uncovered should cause the program to draw markers on the board.
 
-![alt text](Images/camera calibration 1.png "example camera calibration shot")
+![example camera calibration shot](Images/camera calibration 1.png )
 
-Then, using the s key take 20-30 shots of the checker board at different locations & rotations around the frame
+Then, using the s key take 15-25 shots of the checker board at different locations & rotations around the frame
 
 once collected press c to save this data to calibration.npz
 and press q to quit the program
