@@ -40,21 +40,24 @@ from arucoDetector import GetCameraData, GetMarkerAngle, CleanupCamera
 ```
 
 running the program from import allows headless running and 'instance' marker angle aquisition; meaning you call the function once and it gives you one set of angles as the output for that instance.
-you can set the expected number of markers to find, the max number of iterations where it will try to get these angles, and the amount of iterations it will need to get all angles for averaging results
+you can set the expected number of markers to find, the max number of iterations where it will try to get these angles, and the amount of iterations it will need to get all angles for averaging results. If it gets more than 3 angles it will use median absolute deviation outlier removal to get the closest posible value
 
 This function is fully blocking, and based on the maxIterations & averagingIterations can take 1-2 seconds to compute
 so if using it for motor position control use it with maxIterations=10 averagingIterations = 2 or other low numbers to minimise processing time and just call the function a lot.
 
 all of the editable variables for the arucoDetector:
 ```python
-cameraID:int = 0                        # id of camera
-expectedNumber:int = 4                  # expected number of markers to find
-maxIterations:int=100                   # maximum number of frames it will attempt to find markers (only used if program not running in continuous mode)
-continuous:bool=True                    # run the detection indefinitely
-showVideo:bool=True                     # show the video frame
-debugInfo:bool=True                     # output text
-averagingItertions:int=15               # the amount of frames it will try to average the angle over (values over 3 enable std based outlier removal)
-calibrationFilePath = 'calibration.npz' # location of camera calibrator
+cameraID:int                    = 0        # id of camera
+markerSize:float                = 0.02     # size of the markers in meters (0.025 = 25mm)
+expectedNumber:int              = 4        # expected number of markers to find
+maxIterations:int               =100       # maximum number of frames it will attempt to find markers (only used if program not running in continuous mode)
+averagingItertions:int          =15        # the amount of frames it will try to average the angle over (values over 3 enable std based outlier removal)
+OutlierRejectionThreshold:float = 0.8      # how strictly to reject outliers when > 3 averageing frames have been found (lower is harsher)
+ParralellToCamera               = False    # is marker parralel to camera (non paralell use 3d rotation matries which take more processing)
+continuous:bool                 = True     # run the detection indefinitely
+showVideo:bool                  = True     # show the video frame
+debugInfo:bool                  = False    # output text
+calibrationFilePath:str         = 'calibration.npz' # location of camera calibrator
 ```
 An example use of the detector:
 ```python
@@ -62,12 +65,13 @@ from ArucoDetector import GetMarkerAngle, GetCameraData, CleanupCamera
 # set up camera
 GotData,CameraData = GetCameraData(cameraID =0)
 if GotData:
-    for x in range (10): # program mainloop
-        GotAngles,angles = GetMarkerAngle(CameraData, maxIterations=10, averagingItertions=5)
+    for x in range (1):
+        # run program in headless mode looking for 4 markers trying to get 15 values for each angle to average over 
+        GotAngles,angles = GetMarkerAngle(CameraData,5, maxIterations=100, averagingItertions=15) 
         if GotAngles:
             #process angles
-            for i in range(len(angles)):
-                print(f"Angle between marker {i} & {i+1}: {angles[i]} degrees")
+           for i in range(len(angles)):
+               print(f"Angle between marker {i} & {i+1}: {angles[i]} degrees")
         else:
             print("No markers detected.")
         print("#################################")
