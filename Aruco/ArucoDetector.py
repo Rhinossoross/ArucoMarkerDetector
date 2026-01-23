@@ -34,8 +34,7 @@ class _DetectedAruco: #the single underscore makes this a private class
         self.CenterVector = self.Rightcenter - self.Leftcenter   # the vector maede from the center point of each virticle edge of the marker
 
 def GetVectorAngle(vector1, vector2):
-    """get the angle between two vectors in radians"""
-    # The smallest angle between these two input vectors
+    """get the smallest angle between two vectors in radians"""
     dot_product = np.dot(vector1, vector2)
     cross_product = vector1[0] * vector2[1] - vector1[1] * vector2[0]
     angle = np.arctan2(cross_product, dot_product)
@@ -61,14 +60,14 @@ class _CameraData:
 
 def GetCameraData(
         cameraID:int = 0,
-        markerSize:float = 0.02,
+        markerSize:float = 0.01,
         calibrationFilePath:str = 'calibration.npz',
                 ):
     """set up the camera for capture
     Parameters
     ----------
     CameraID : The numerical id of the camera
-    markerSize : The size of the marker in meters (0.02 = 20mm)
+    markerSize : The size of the marker in meters (0.01 = 10mm)
     CalibraionPath : location of the calibration file.
     
     Returns
@@ -202,13 +201,9 @@ def GetMarkerAngle(
                     aruco_list.append(detected_aruco)
 
                     ### include 3D pose for this marker (translation and rotation vector) ###
-
-                    #print(f"Marker ID {detected_aruco.id}:")
-                    #print(f"  Translation (x, y, z): {tvec.flatten()}")
                     detected_aruco.rotV = rvec.flatten()
                     rotM = cv2.Rodrigues(src = rvec.flatten())[0]
                     detected_aruco.rotM = rotM
-                    #print(f"\n\n  Rotation vector:\n {rotM}")
 
                     # Optional: Draw axes on the frame for visualization
                     if showVideo: cv2.drawFrameAxes(frame, CameraData.camera_matrix, CameraData.dist_coeffs, rvec, tvec, CameraData.markerSize / 2)
@@ -281,5 +276,5 @@ def GetMarkerAngle(
 if __name__ == "__main__":
     success,data = GetCameraData(cameraID,markerSize,calibrationFilePath)
     if success:
-        GetMarkerAngle(data, expectedNumber, maxIterations, averagingItertions,ParralellToCamera, continuous, showVideo, debugInfo)
+        GetMarkerAngle(data, expectedNumber, maxIterations, averagingItertions,OutlierRejectionThreshold,ParralellToCamera, continuous, showVideo, debugInfo)
         CleanupCamera(data)
