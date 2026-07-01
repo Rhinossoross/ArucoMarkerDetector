@@ -59,7 +59,7 @@ class _CameraData:
 
 
 def GetCameraData(
-        cameraID:int = 0,
+        cap:cv2.VideoCapture = cv2.VideoCapture(0),
         markerSize:float = 0.01,
         calibrationFilePath:str = 'calibration.npz',
                 ):
@@ -83,7 +83,6 @@ def GetCameraData(
     detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params, refine_params)
 
     # Open the webcam
-    cap = cv2.VideoCapture(cameraID)
     if not cap.isOpened():
         if debugInfo: print("Error: Could not open video.")
         return False ,None
