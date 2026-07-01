@@ -1,6 +1,7 @@
 from ArucoDetector import GetMarkerAngle, GetCameraData, CleanupCamera
+import cv2
 # set up camera
-GotData,CameraData = GetCameraData(cameraID =0)
+GotData,CameraData = GetCameraData(cap =cv2.VideoCapture(0))
 
 
 if GotData:
