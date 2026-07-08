@@ -59,7 +59,7 @@ class _CameraData:
 
 
 def GetCameraData(
-        cap:cv2.VideoCapture = cv2.VideoCapture(0),
+        cap:cv2.VideoCapture = None,
         markerSize:float = 0.01,
         calibrationFilePath:str = 'calibration.npz',
                 ):

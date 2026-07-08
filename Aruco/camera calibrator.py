@@ -8,7 +8,7 @@
 # Saves camera_matrix and dist_coeffs to 'calibration.npz'.
 
 ############################################# < Required input variables > #############################################
-
+from finger_rig.common.camera import PiCamera
 CameraId = 0 
 
 chessboard_size = (9, 6)  # Change if your chessboard is different (width, height) based on inner corners
@@ -30,7 +30,7 @@ objp *= square_size  # Scale by square size
 objpoints: List[npt.NDArray[np.float32]] = []  # 3D points in real world space
 imgpoints: List[npt.NDArray[np.float32]] = []  # 2D points in image plane
 
-cap = cv2.VideoCapture(CameraId)          
+cap = PiCamera()#cv2.VideoCapture(CameraId)          
 
 
 if not cap.isOpened():
