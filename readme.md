@@ -1,8 +1,3 @@
-# BRL modular finger testing rig
-welcome to the repo!
-This repo contains all the information and software you could possibly need to set up your own test rig;
-All CAD files can be found in the Shared fusion hub for the most up to date models; but built files are stored in stl and obj form on here
-
 ## Aruco marker Detectors 
 In order to detect relative positions of the finger joints you can easily use aruco markers.
 Currently this is configured to only produce relative joint angles. However, it can be changed to give 3d position and angle vectors.
