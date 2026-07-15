@@ -19,6 +19,9 @@ calibrationFilePath:str = 'calibration.npz' # location of camera calibrator
 # required imports
 import cv2
 import numpy as np
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
 class _DetectedAruco: #the single underscore makes this a private class
     def __init__(self):
         self.corner = np.zeros((4, 2))
@@ -124,6 +127,244 @@ def CleanupCamera(cameraData:_CameraData|None):
     if cameraData != None:
         cameraData.cap.release()
     cv2.destroyAllWindows()
+
+def CaptureFrame(cameraData: _CameraData) -> tuple[float, np.ndarray | None]:
+    """capture a single frame and timestamp it at the moment of acquisition
+
+    Parameters
+    ----------
+    cameraData : camera/detector state from GetCameraData
+
+    Returns
+    -------
+    timestamp : time.perf_counter() value taken immediately after the frame was read
+    frame : the captured frame, or None if the read failed
+    """
+    ret, frame = cameraData.cap.read()
+    timestamp = time.perf_counter()
+    if not ret:
+        return timestamp, None
+    return timestamp, frame
+
+
+@dataclass
+class MarkerPose:
+    """pose of a single detected marker within one frame"""
+    id: int
+    corners: np.ndarray
+    rvec: np.ndarray
+    tvec: np.ndarray
+    rotM: np.ndarray
+
+
+def DetectMarkers(cameraData: _CameraData, frame: np.ndarray) -> list[MarkerPose]:
+    """detect ArUco markers in a frame and estimate each one's pose
+
+    Parameters
+    ----------
+    cameraData : camera/detector state from GetCameraData
+    frame : image to detect markers in, e.g. from CaptureFrame
+
+    Returns
+    -------
+    markers : one MarkerPose per successfully detected and pose-estimated marker, sorted by ascending id
+    """
+    markers = []
+    corners, ids, rejected = cameraData.detector.detectMarkers(frame)
+    if ids is not None:
+        for i in range(len(ids)):
+            image_points = corners[i][0]  # 2D image points for this marker
+            success, rvec, tvec = cv2.solvePnP(
+                cameraData.object_points, image_points, cameraData.camera_matrix, cameraData.dist_coeffs,
+                flags=cv2.SOLVEPNP_IPPE_SQUARE)
+            if success:
+                rvec = rvec.flatten()
+                rotM = cv2.Rodrigues(rvec)[0]
+                markers.append(MarkerPose(id=ids[i][0], corners=image_points, rvec=rvec, tvec=tvec.flatten(), rotM=rotM))
+    markers.sort(key=lambda m: m.id)
+    return markers
+
+
+def _MarkerCenterVector(corners: np.ndarray) -> np.ndarray:
+    """vector from the left-edge midpoint to the right-edge midpoint of a marker, in image space"""
+    left_center = (corners[0] + corners[3]) / 2
+    right_center = (corners[1] + corners[2]) / 2
+    return right_center - left_center
+
+
+def VectorAngleBetweenMarkers(marker1: MarkerPose, marker2: MarkerPose) -> float:
+    """relative angle in degrees between two markers' corner-center vectors
+
+    more accurate than RotationMatrixAngleBetweenMarkers when markers are parallel to the camera
+    """
+    v1 = _MarkerCenterVector(marker1.corners)
+    v2 = _MarkerCenterVector(marker2.corners)
+    return float(np.degrees(GetVectorAngle(v1, v2)))
+
+
+def RotationMatrixAngleBetweenMarkers(marker1: MarkerPose, marker2: MarkerPose) -> float:
+    """relative angle in degrees between two markers' 3D rotation matrices
+
+    more accurate than VectorAngleBetweenMarkers when markers are not parallel to the camera
+    """
+    return float(np.degrees(GetRotMatAngles(marker1.rotM, marker2.rotM)))
+
+
+def ComputePairwiseAngles(
+        markers: list[MarkerPose],
+        expectedNumber: int,
+        angle_fn: Callable[[MarkerPose, MarkerPose], float] = RotationMatrixAngleBetweenMarkers,
+        ) -> list[float | None]:
+    """compute the relative angle between each consecutive pair of expected marker ids
+
+    Parameters
+    ----------
+    markers : detected markers, e.g. from DetectMarkers
+    expectedNumber : total number of markers expected; ids are assumed to run 0..expectedNumber-1
+    angle_fn : strategy used to compute the angle between two markers' poses. Defaults to
+               RotationMatrixAngleBetweenMarkers; pass VectorAngleBetweenMarkers when markers are
+               parallel to the camera, or any other callable with the same signature to use a
+               different algorithm entirely without modifying this function.
+
+    Returns
+    -------
+    angles : fixed-size list of length expectedNumber - 1, index-stable across calls.
+             angles[i] is the angle between marker i and marker i+1 in degrees, or None if either
+             marker wasn't detected this frame.
+    """
+    markers_by_id = {marker.id: marker for marker in markers}
+    angles: list[float | None] = [None] * (expectedNumber - 1)
+    for i in range(expectedNumber - 1):
+        marker1 = markers_by_id.get(i)
+        marker2 = markers_by_id.get(i + 1)
+        if marker1 is not None and marker2 is not None:
+            angles[i] = angle_fn(marker1, marker2)
+    return angles
+
+
+@dataclass
+class MarkerSample:
+    """one timestamped snapshot of all markers detected in a single frame"""
+    timestamp: float
+    frame: np.ndarray | None
+    markers: list[MarkerPose]
+    pairwise_angles: list[float | None]
+
+
+def SampleMarkerFrame(
+        cameraData: _CameraData,
+        expectedNumber: int = 4,
+        angle_fn: Callable[[MarkerPose, MarkerPose], float] = RotationMatrixAngleBetweenMarkers,
+        ) -> MarkerSample:
+    """capture and process exactly one frame: acquire, detect, estimate pose, compute angles
+
+    Single-shot primitive with no internal loop - call it once per iteration of whatever loop
+    drives data collection (e.g. alongside sampling another sensor stream for synchronization).
+    The returned timestamp and any other stream sampled in the same loop iteration share
+    Python's process-wide monotonic clock, so no wall-clock/NTP alignment is needed.
+
+    Parameters
+    ----------
+    cameraData : camera/detector state from GetCameraData
+    expectedNumber : total number of markers expected; ids are assumed to run 0..expectedNumber-1
+    angle_fn : strategy passed through to ComputePairwiseAngles
+
+    Returns
+    -------
+    sample : timestamped frame, detected marker poses, and pairwise angles for this one frame.
+             markers/pairwise_angles are empty/all-None if the frame read failed.
+    """
+    timestamp, frame = CaptureFrame(cameraData)
+    if frame is None:
+        return MarkerSample(timestamp=timestamp, frame=None, markers=[], pairwise_angles=[None] * (expectedNumber - 1))
+    markers = DetectMarkers(cameraData, frame)
+    pairwise_angles = ComputePairwiseAngles(markers, expectedNumber, angle_fn)
+    return MarkerSample(timestamp=timestamp, frame=frame, markers=markers, pairwise_angles=pairwise_angles)
+
+
+def RenderOverlay(cameraData: _CameraData, sample: MarkerSample) -> np.ndarray | None:
+    """draw marker axes, outlines, and pairwise angle text onto a copy of a sampled frame
+
+    Operates on a copy of sample.frame so the caller's original frame stays untouched for
+    logging/analysis - this is purely for an optional live view and shouldn't be called at all
+    on a data-collection path that doesn't need display.
+
+    Parameters
+    ----------
+    cameraData : camera/detector state, needed for camera_matrix/dist_coeffs/markerSize
+    sample : output of SampleMarkerFrame to visualize
+
+    Returns
+    -------
+    frame : annotated copy of sample.frame, or None if sample.frame is None
+    """
+    if sample.frame is None:
+        return None
+    frame = sample.frame.copy()
+
+    for marker in sample.markers:
+        cv2.drawFrameAxes(frame, cameraData.camera_matrix, cameraData.dist_coeffs,
+                           marker.rvec, marker.tvec, cameraData.markerSize / 2)
+
+    if sample.markers:
+        corners = [marker.corners.reshape(1, 4, 2).astype(np.float32) for marker in sample.markers]
+        ids = np.array([[marker.id] for marker in sample.markers], dtype=np.int32)
+        cv2.aruco.drawDetectedMarkers(frame, corners, ids)
+
+    for i, angle in enumerate(sample.pairwise_angles):
+        if angle is not None:
+            cv2.putText(frame, f"{i}->{i+1}: {int(angle)} deg",
+                        (10, 30 + i * 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+    return frame
+
+
+def AggregateAngles(
+        angle_history: list[list[float | None]],
+        outlierRejectionThreshold: float = 1.2,
+        ) -> list[float | None]:
+    """aggregate a history of per-frame pairwise angles into one value per marker pair
+
+    Pure function - independent of frames, cameras, or timing. Callers collect samples via
+    repeated SampleMarkerFrame calls (e.g. each sample.pairwise_angles) and pass the resulting
+    history in here whenever a stabilized reading is wanted; it's an optional post-processing
+    step, not part of the per-frame streaming path.
+
+    Applies median-absolute-deviation (MAD) based outlier rejection when at least 3 samples are
+    available for a given pair; falls back to the plain median for 1-2 samples.
+
+    Parameters
+    ----------
+    angle_history : one entry per sampled frame; each entry is a fixed-size list of angles (or
+                     None where a marker pair wasn't detected that frame), e.g. a sequence of
+                     sample.pairwise_angles values from SampleMarkerFrame.
+    outlierRejectionThreshold : how strictly to reject outliers (lower is harsher), scaled
+                                 against each pair's MAD.
+
+    Returns
+    -------
+    averaged : one aggregated angle per marker pair, or None where no frame ever detected that pair.
+    """
+    if not angle_history:
+        return []
+    numPairs = len(angle_history[0])
+    averaged: list[float | None] = []
+    for i in range(numPairs):
+        angle_list: list[float] = [angle for angle in (frame[i] for frame in angle_history) if angle is not None]
+        if len(angle_list) == 0:
+            averaged.append(None)
+        elif len(angle_list) < 3:
+            averaged.append(float(np.median(angle_list)))
+        else:
+            median = np.median(angle_list)
+            medianAbsoluteDeviation = np.median(np.abs(np.array(angle_list) - median))
+            threshold = outlierRejectionThreshold * medianAbsoluteDeviation
+            filtered = [a for a in angle_list if abs(a - median) <= threshold]
+            if not filtered:
+                filtered = angle_list
+            averaged.append(float(np.mean(filtered)))
+    return averaged
+
 
 def GetMarkerAngle(
         CameraData:_CameraData|None,
