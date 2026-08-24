@@ -49,6 +49,12 @@ class PiCameraCapture:
         self.picam2.stop()
         self.picam2.close()
 
+def save_matrix2txt(matrix: np.ndarray, filename: str = "calibration.txt"):
+    matrix_str = np.array2string(matrix, separator=', ')
+
+    with open("calibration.txt", "w") as f:
+        f.write(matrix_str)
+
 
 def open_camera(use_picamera: bool, camera_id: int):
     """Open the requested camera. Returns an object with read/isOpened/release.
@@ -135,7 +141,9 @@ while True:
         ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints,imageSize, None, None) # type: ignore[call-arg]
         if ret:
             np.savez('calibration.npz', camera_matrix=camera_matrix, dist_coeffs=dist_coeffs)
-            print("Calibration saved to 'calibration.npz'")
+            save_matrix2txt(camera_matrix, "camera_matrix.txt")
+            save_matrix2txt(dist_coeffs, "dist_coeffs.txt")
+            print("Calibration saved to 'calibration.npz', 'camera_matrix.txt' and 'dist_coeffs.txt'")
             calibrated = True
             break
         else:
