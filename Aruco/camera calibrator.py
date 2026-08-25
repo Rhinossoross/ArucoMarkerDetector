@@ -52,11 +52,11 @@ class PiCameraCapture:
 def save_matrix2txt(matrix: np.ndarray, filename: str = "calibration.txt"):
     matrix_str = np.array2string(matrix, separator=', ')
 
-    with open("calibration.txt", "w") as f:
+    with open(filename, "w") as f:
         f.write(matrix_str)
 
 
-def open_camera(use_picamera: bool, camera_id: int):
+def open_camera(use_picamera: bool, camera_id: int, resolution: tuple = (1280, 720)):
     """Open the requested camera. Returns an object with read/isOpened/release.
 
     Uses cv2.VideoCapture by default to open videostream.
@@ -74,8 +74,12 @@ def open_camera(use_picamera: bool, camera_id: int):
         print(f"Using picamera2 at {PiCameraResolution[0]}x{PiCameraResolution[1]}")
         return cap
 
+    cap = cv2.VideoCapture(camera_id)
+    width, height = resolution
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     print(f"Using cv2.VideoCapture({camera_id})")
-    return cv2.VideoCapture(camera_id)
+    return cap
 
 
 parser = argparse.ArgumentParser(

@@ -1,6 +1,9 @@
-"""Detect Aruco markers 2d relative rotations from any webcam 
+"""Detect Aruco markers 2d relative rotations from any webcam
    - requires OpenCV and Numpy
 """
+
+# The 'X | None' annotations below are 3.10+ syntax; annotations allow python 3.9 to use these features
+from __future__ import annotations
 
 #if running this program instead of importing, then these are the programs input variables:
 #
